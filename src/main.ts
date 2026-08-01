@@ -2,6 +2,8 @@ import { HandTracker } from "./tracking/HandTracker";
 import { HandAnalyzer } from "./tracking/HandAnalyzer";
 import "./style.css";
 import { GuestureReconizer } from "./tracking/GestureReconizer";
+import { ParticleSystem } from "./particles/ParticleSystem"
+import { Vector3 } from "three";
 
 // Gets the webcam video element from the HTML
 const video = document.getElementById("webcam") as HTMLVideoElement;
@@ -15,9 +17,11 @@ const analyzer = new HandAnalyzer();
 // Creates gesture recongnition system
 const gesture = new GuestureReconizer();
 
+// Particles maker
+const particles = new ParticleSystem();
+
 // Initializes MediaPipe before starting the webcam
 await tracker.initialize();
-
 // Starts the user's webcam
 async function startWebcam(): Promise<void> {
   // Requests access to the user's webcam
@@ -51,6 +55,10 @@ function loop(): void {
     requestAnimationFrame(loop);
     return;
   }
+
+  // Gets center of palm and puts particles around it
+  const palm = tracker.getPalm();
+  particles.startDoingStuff(palm)
 
   // Recognizes gestures
   console.log(gesture.reconizeGesture(analyzer.isIndexOpen(hands[0]), analyzer.isMiddleOpen(hands[0]), analyzer.isRingOpen(hands[0]), analyzer.isPinkyOpen(hands[0])))
