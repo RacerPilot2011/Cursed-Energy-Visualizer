@@ -11,7 +11,7 @@ export class GuestureReconizer {
             index: false,
             middle: true,
             ring: false,
-            pinky: true,
+            pinky: false,
         },
     };
 

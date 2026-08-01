@@ -2,8 +2,7 @@ import { HandTracker } from "./tracking/HandTracker";
 import { HandAnalyzer } from "./tracking/HandAnalyzer";
 import "./style.css";
 import { GuestureReconizer } from "./tracking/GestureReconizer";
-import { ParticleSystem } from "./particles/ParticleSystem"
-import { Vector3 } from "three";
+import { ParticleSystem, convertMediaPipeToThree } from "./particles/ParticleSystem"
 
 // Gets the webcam video element from the HTML
 const video = document.getElementById("webcam") as HTMLVideoElement;
@@ -45,25 +44,42 @@ async function startWebcam(): Promise<void> {
 
 // Runs once per animation frame
 function loop(): void {
-  // Gives the newest webcam frame to the HandTracker
   tracker.update(video);
 
-  // Gets the hands detected in the newest processed frame
   const hands = tracker.getHands();
-  
+
   if (hands.length === 0) {
     requestAnimationFrame(loop);
     return;
   }
 
-  // Gets center of palm and puts particles around it
+  const gestureVar = gesture.reconizeGesture(analyzer.isIndexOpen(hands[0]), analyzer.isMiddleOpen(hands[0]), analyzer.isRingOpen(hands[0]), analyzer.isPinkyOpen(hands[0]));
+
   const palm = tracker.getPalm();
-  particles.startDoingStuff(palm)
 
-  // Recognizes gestures
-  console.log(gesture.reconizeGesture(analyzer.isIndexOpen(hands[0]), analyzer.isMiddleOpen(hands[0]), analyzer.isRingOpen(hands[0]), analyzer.isPinkyOpen(hands[0])))
+  if (!palm) {
+    requestAnimationFrame(loop);
+    return;
+  }
 
-  // Requests that this function runs again on the next animation frame
+  const center = convertMediaPipeToThree(palm, particles.getCamera(), false);
+
+  if (gestureVar === "reversalRed") {
+    let point = {
+      x: (hands[0].landmarks[8].x + hands[0].landmarks[12].x) / 2,
+      y: hands[0].landmarks[12].y - 0.15,
+      z: hands[0].landmarks[12].z
+    }
+    particles.gather(convertMediaPipeToThree(point, particles.getCamera(), false), 0.5);
+    particles.setColor(0xc30f16);
+  } else if (gestureVar === "hollowPurple") {
+    particles.gather(convertMediaPipeToThree(hands[0].landmarks[10], particles.getCamera(), false), 2);
+    particles.setColor(0x743089);
+  } else {
+    particles.spread(center);
+    particles.setColor(0xffffff);
+  }
+
   requestAnimationFrame(loop);
 }
 

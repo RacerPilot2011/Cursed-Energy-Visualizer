@@ -1,72 +1,76 @@
 import * as THREE from "three";
 
-// Define the shape of MediaPipe landmarks
 interface MediaPipeLandmark {
-  x: number;
-  y: number;
-  z: number; 
+    x: number;
+    y: number;
+    z: number;
 }
 
 export function convertMediaPipeToThree(landmark: MediaPipeLandmark, camera: THREE.PerspectiveCamera, isSelfieMode: boolean = true): THREE.Vector3 {
-  const ndc = new THREE.Vector3();
+    const ndc = new THREE.Vector3();
 
-  if (isSelfieMode) {
-    ndc.x = -(landmark.x * 2 - 1);
-  } else {
-    ndc.x = landmark.x * 2 - 1;
-  }
+    if (isSelfieMode) {
+        ndc.x = -(landmark.x * 2 - 1);
+    } else {
+        ndc.x = landmark.x * 2 - 1;
+    }
 
-  ndc.y = -(landmark.y * 2 - 1);
-  ndc.z = -(landmark.z * 2) - 1; 
-  ndc.unproject(camera);
+    ndc.y = -(landmark.y * 2 - 1);
+    ndc.z = -(landmark.z * 2) - 1;
 
-  const targetDepth = 5;
-  const dir = ndc.sub(camera.position).normalize();
-  
-  return camera.position.clone().add(dir.multiplyScalar(targetDepth));
+    ndc.unproject(camera);
+
+    const targetDepth = 5;
+    const dir = ndc.sub(camera.position).normalize();
+
+    return camera.position.clone().add(dir.multiplyScalar(targetDepth));
 }
 
-export class ParticleSystem { 
+export class ParticleSystem {
     private scene = new THREE.Scene();
-    private camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.1, 1000);
-    private render = new THREE.WebGLRenderer({alpha: true});
 
-    private geometry!: THREE.BufferGeometry;
+    private camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+    private render = new THREE.WebGLRenderer({ alpha: true });
+
+    private geometry = new THREE.BufferGeometry();
     private material!: THREE.PointsMaterial;
     private particles!: THREE.Points;
 
-    private positions = new Float32Array(10000 * 3);
+    private positions = new Float32Array(1000 * 3);
 
-    update(center: THREE.Vector3) {
-        const positionAttribute = this.geometry.getAttribute("position") as THREE.BufferAttribute;
+    private targets = new Float32Array(1000 * 3);
 
-        const positions = positionAttribute.array as Float32Array;
+    private center = new THREE.Vector3();
 
-        for (let i = 0; i < positions.length; i += 3) {
-            positions[i] - center.x;
-            positions[i + 1] - center.y;
-            positions[i + 2] - center.z;
-        }
+    private initialized = false;
 
-        positionAttribute.needsUpdate = true;
-    }
-
-    startDoingStuff(landmark: any) {
-        const center = convertMediaPipeToThree(landmark, this.camera, false)
-
-        if (document.querySelector<HTMLCanvasElement>('#particleCanvas')) {
-            console.log("Particles exist, removing");
-            this.scene.remove(this.particles);
-        }
+    constructor() {
         this.render.setSize(window.innerWidth, window.innerHeight);
+
         this.render.domElement.style.position = "fixed";
         this.render.domElement.style.top = "0";
         this.render.domElement.style.left = "0";
         this.render.domElement.style.zIndex = "10";
-        this.render.domElement.id = "particleCanvas"
+        this.render.domElement.id = "particleCanvas";
+
         document.body.appendChild(this.render.domElement);
 
-        for (let i = 0; i < 10000; i++) {
+        this.camera.position.set(0, 0, 5);
+        this.camera.lookAt(0, 0, 0);
+
+        this.createParticles();
+
+        this.render.setAnimationLoop(() => {
+        this.update();
+        this.render.render(this.scene, this.camera);
+        });
+    }
+
+    private createParticles() {
+        for (let i = 0; i < 1000; i++) {
+            const i3 = i * 3;
+
             const theta = Math.random() * Math.PI * 2;
             const phi = Math.acos(2 * Math.random() - 1);
             const radius = Math.random() * 2;
@@ -75,31 +79,86 @@ export class ParticleSystem {
             const y = radius * Math.sin(phi) * Math.sin(theta);
             const z = radius * Math.cos(phi);
 
-            this.positions[i * 3] = x + center.x;
-            this.positions[i * 3 + 1] = y + center.y;
-            this.positions[i * 3 + 2] = z + center.z;
-        }
+            this.positions[i3] = x;
+            this.positions[i3 + 1] = y;
+            this.positions[i3 + 2] = z;
 
-        this.geometry = new THREE.BufferGeometry();
+            this.targets[i3] = x;
+            this.targets[i3 + 1] = y;
+            this.targets[i3 + 2] = z;
+        }
 
         this.geometry.setAttribute("position", new THREE.BufferAttribute(this.positions, 3));
 
-        this.material = new THREE.PointsMaterial({ size: 0.05 });
+        this.material = new THREE.PointsMaterial({ 
+            size: 0.05,
+            color: 0xffffff
+        });
 
         this.particles = new THREE.Points(this.geometry, this.material);
 
         this.scene.add(this.particles);
 
-        this.camera.position.set(0, 0, 5);
-        this.camera.lookAt(0, 0, 0);
+        this.initialized = true;
+    }
 
-        const startRendering = (time: any) => {
-            this.update(center)
-            this.render.render(this.scene, this.camera)
-            return
+    private update() {
+        if (!this.initialized) return;
+
+        const positionAttribute = this.geometry.getAttribute("position") as THREE.BufferAttribute;
+
+        for (let i = 0; i < 1000; i++) {
+            const i3 = i * 3;
+
+            this.positions[i3] += (this.targets[i3] - this.positions[i3]) * 0.08;
+
+            this.positions[i3 + 1] += (this.targets[i3 + 1] - this.positions[i3 + 1]) * 0.08;
+
+            this.positions[i3 + 2] += (this.targets[i3 + 2] - this.positions[i3 + 2]) * 0.08;
         }
 
-        this.render.setAnimationLoop(startRendering)
+        positionAttribute.needsUpdate = true;
+    }
+
+    spread(center: THREE.Vector3) {
+        for (let i = 0; i < 1000; i++) {
+            const i3 = i * 3;
+
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+
+            const radius = 1.5 + Math.random() * 3;
+
+            this.targets[i3] = center.x + radius * Math.sin(phi) * Math.cos(theta);
+
+            this.targets[i3 + 1] = center.y + radius * Math.sin(phi) * Math.sin(theta);
+
+            this.targets[i3 + 2] = center.z + radius * Math.cos(phi);
+        }
+    }
+
+    gather(center: THREE.Vector3, size: number) {
+        for (let i = 0; i < 1000; i++) {
+            const i3 = i * 3;
+
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+
+            const radius = Math.random() * size;
+
+            this.targets[i3] = center.x + radius * Math.sin(phi) * Math.cos(theta);
+
+            this.targets[i3 + 1] = center.y + radius * Math.sin(phi) * Math.sin(theta);
+
+            this.targets[i3 + 2] = center.z + radius * Math.cos(phi);
+        }
+    }
+
+    setColor(color: number) {
+        this.material.color.set(color);
+    }
+
+    getCamera() {
+        return this.camera;
     }
 }
-
