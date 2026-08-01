@@ -1,7 +1,7 @@
 import { HandTracker } from "./tracking/HandTracker";
 import { HandAnalyzer } from "./tracking/HandAnalyzer";
 import "./style.css";
-import { GuestureReconizer } from "./tracking/GuestureReconizer";
+import { GuestureReconizer } from "./tracking/GestureReconizer";
 
 // Gets the webcam video element from the HTML
 const video = document.getElementById("webcam") as HTMLVideoElement;
@@ -53,7 +53,7 @@ function loop(): void {
   }
 
   // Recognizes gestures
-  console.log(gesture.getFingersOpenOrClosed(analyzer.isIndexOpen(hands[0]), analyzer.isMiddleOpen(hands[0]), analyzer.isRingOpen(hands[0]), analyzer.isPinkyOpen(hands[0])))
+  console.log(gesture.reconizeGesture(analyzer.isIndexOpen(hands[0]), analyzer.isMiddleOpen(hands[0]), analyzer.isRingOpen(hands[0]), analyzer.isPinkyOpen(hands[0])))
 
   // Requests that this function runs again on the next animation frame
   requestAnimationFrame(loop);
