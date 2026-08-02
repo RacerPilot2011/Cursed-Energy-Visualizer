@@ -1,4 +1,4 @@
-import { FilesetResolver, HandLandmarker, type HandLandmarkerResult } from "@mediapipe/tasks-vision";
+import { DrawingUtils, FilesetResolver, HandLandmarker, type HandLandmarkerResult } from "@mediapipe/tasks-vision";
 
 import { Hand, Landmark } from "./Hand";
 
@@ -11,6 +11,8 @@ export class HandTracker {
 
   // Stores the hands currently visible in the webcam
   private handArray: Hand[] = [];
+
+  private drawingUtils: DrawingUtils | undefined = undefined;
 
   // Initializes MediaPipe and loads the hand tracking model
   async initialize(): Promise<void> {
@@ -110,5 +112,33 @@ export class HandTracker {
       y: centeredY,
       z: centeredZ
     }
+  }
+
+  drawResults(video: HTMLVideoElement, canvas: HTMLCanvasElement, landmarks: any): void {
+    const ctx = canvas.getContext("2d")!;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    if (!this.drawingUtils) {
+      this.drawingUtils = new DrawingUtils(ctx);
+    }
+
+    ctx.save();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (landmarks) {
+      for (const hand of landmarks) {
+        this.drawingUtils.drawConnectors(hand.landmarks, HandLandmarker.HAND_CONNECTIONS, {
+          color: "#00FF00",
+          lineWidth: 5
+        });
+
+        this.drawingUtils.drawLandmarks(hand.landmarks, {
+          color: "#FF0000",
+          lineWidth: 2
+        });
+      }
+    }
+    ctx.restore();
   }
 }

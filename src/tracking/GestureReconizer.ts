@@ -3,9 +3,15 @@ export class GuestureReconizer {
     private guesturesToReconize = {
         "reversalRed": {
             index: false,
-            middle: false,
+            middle: true,
             ring: true,
             pinky: true,
+        },
+        "lapseBlue": {
+            index: true,
+            middle: true,
+            ring: false,
+            pinky: false,
         },
         "hollowPurple": {
             index: false,

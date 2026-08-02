@@ -62,20 +62,21 @@ function loop(): void {
     return;
   }
 
+  tracker.drawResults(video, document.getElementById("overlay") as HTMLCanvasElement, hands);
+
   const center = convertMediaPipeToThree(palm, particles.getCamera(), false);
 
   if (gestureVar === "reversalRed") {
-    let point = {
-      x: (hands[0].landmarks[8].x + hands[0].landmarks[12].x) / 2,
-      y: hands[0].landmarks[12].y - 0.15,
-      z: hands[0].landmarks[12].z
-    }
-    particles.gather(convertMediaPipeToThree(point, particles.getCamera(), false), 0.5);
+    particles.gather(convertMediaPipeToThree( { x: hands[0].landmarks[8].x, y: hands[0].landmarks[8].y - 0.15, z: hands[0].landmarks[8].z }, particles.getCamera(), false), 0.5);
     particles.setColor(0xc30f16);
   } else if (gestureVar === "hollowPurple") {
-    particles.gather(convertMediaPipeToThree(hands[0].landmarks[10], particles.getCamera(), false), 2);
+    particles.gather(convertMediaPipeToThree( { x: hands[0].landmarks[10].x, y: hands[0].landmarks[12].y - 0.15, z: hands[0].landmarks[12].z}, particles.getCamera(), false), 2);
     particles.setColor(0x743089);
-  } else {
+  } else if (gestureVar === "lapseBlue") {
+    particles.gather(convertMediaPipeToThree( { x: (hands[0].landmarks[8].x + hands[0].landmarks[12].x) / 2, y: hands[0].landmarks[12].y - 0.15, z: hands[0].landmarks[12].z }, particles.getCamera(), false), 2);
+    particles.setColor(0x87ceeb);
+  }
+   else {
     particles.spread(center);
     particles.setColor(0xffffff);
   }

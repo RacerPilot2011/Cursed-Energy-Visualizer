@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { WebGPURenderer } from "three/webgpu"
 
 interface MediaPipeLandmark {
     x: number;
@@ -29,17 +30,17 @@ export function convertMediaPipeToThree(landmark: MediaPipeLandmark, camera: THR
 export class ParticleSystem {
     private scene = new THREE.Scene();
 
-    private camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.1, 1000);
+    private camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.1, 10000);
 
-    private render = new THREE.WebGLRenderer({ alpha: true });
+    private render = new WebGPURenderer({ alpha: true });
 
     private geometry = new THREE.BufferGeometry();
     private material!: THREE.PointsMaterial;
     private particles!: THREE.Points;
 
-    private positions = new Float32Array(1000 * 3);
+    private positions = new Float32Array(10000 * 3);
 
-    private targets = new Float32Array(1000 * 3);
+    private targets = new Float32Array(10000 * 3);
 
     private center = new THREE.Vector3();
 
@@ -62,13 +63,13 @@ export class ParticleSystem {
         this.createParticles();
 
         this.render.setAnimationLoop(() => {
-        this.update();
-        this.render.render(this.scene, this.camera);
+            this.update();
+            this.render.render(this.scene, this.camera);
         });
     }
 
     private createParticles() {
-        for (let i = 0; i < 1000; i++) {
+        for (let i = 0; i < 10000; i++) {
             const i3 = i * 3;
 
             const theta = Math.random() * Math.PI * 2;
@@ -107,7 +108,7 @@ export class ParticleSystem {
 
         const positionAttribute = this.geometry.getAttribute("position") as THREE.BufferAttribute;
 
-        for (let i = 0; i < 1000; i++) {
+        for (let i = 0; i < 10000; i++) {
             const i3 = i * 3;
 
             this.positions[i3] += (this.targets[i3] - this.positions[i3]) * 0.08;
@@ -121,7 +122,7 @@ export class ParticleSystem {
     }
 
     spread(center: THREE.Vector3) {
-        for (let i = 0; i < 1000; i++) {
+        for (let i = 0; i < 10000; i++) {
             const i3 = i * 3;
 
             const theta = Math.random() * Math.PI * 2;
@@ -138,7 +139,7 @@ export class ParticleSystem {
     }
 
     gather(center: THREE.Vector3, size: number) {
-        for (let i = 0; i < 1000; i++) {
+        for (let i = 0; i < 10000; i++) {
             const i3 = i * 3;
 
             const theta = Math.random() * Math.PI * 2;
