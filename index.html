@@ -5,19 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Cursed Energy Visualizer</title>
   </head>
-  <body>
+  <body style="background-color: black;">
     <div id="app">
       <video id="webcam" autoplay playsinline></video>
       <canvas id="overlay"></canvas>
     </div>
-    <script type="importmap"> {
-      "imports": {
-          "three": "./node_modules/three/build/three.webgpu.js",
-          "three/tsl": "./node_modules/three/build/three.webgpu.js",
-          "three/addons/": "./node_modules/three/examples/jsm/"
-      }
-  }
-  </script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -1,5 +1,7 @@
 import * as THREE from "three";
-import { WebGPURenderer } from "three/webgpu"
+import * as webGPU from "three/webgpu"
+import * as tsl from "three/tsl"
+import { Vector } from "@cazala/party";
 
 interface MediaPipeLandmark {
     x: number;
@@ -28,114 +30,123 @@ export function convertMediaPipeToThree(landmark: MediaPipeLandmark, camera: THR
 }
 
 export class ParticleSystem {
-    private scene = new THREE.Scene();
+    public scene = new THREE.Scene();
 
-    private camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.1, 10000);
+    public camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.1, 10000);
 
-    private render = new WebGPURenderer({ alpha: true });
+    public renderer = new webGPU.WebGPURenderer({ alpha: true });
+
+    public update: any;
 
     private geometry = new THREE.BufferGeometry();
     private material!: THREE.PointsMaterial;
     private particles!: THREE.Points;
 
-    private positions = new Float32Array(10000 * 3);
+    // private positions = new webGPU.StorageBufferAttribute(new Float32Array(10000 * 3), 1)
 
-    private targets = new Float32Array(10000 * 3);
-
-    private center = new THREE.Vector3();
+    private targets = new webGPU.StorageBufferAttribute(new Float32Array(10000 * 3), 1)
 
     private initialized = false;
 
+    private centerPos = tsl.uniform(new THREE.Vector3(0, 0, 0))
+    private colorOfMaterial = tsl.color(0xffffff)
+
+    private COUNT = 2000;
+    private positions  = tsl.instancedArray(this.COUNT, 'vec3');
+    private velocities = tsl.instancedArray(this.COUNT, 'vec3');
+
     constructor() {
-        this.render.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
 
-        this.render.domElement.style.position = "fixed";
-        this.render.domElement.style.top = "0";
-        this.render.domElement.style.left = "0";
-        this.render.domElement.style.zIndex = "10";
-        this.render.domElement.id = "particleCanvas";
+        this.renderer.domElement.style.position = "fixed";
+        this.renderer.domElement.style.top = "0";
+        this.renderer.domElement.style.left = "0";
+        this.renderer.domElement.style.zIndex = "10";
+        this.renderer.domElement.id = "particleCanvas";
 
-        document.body.appendChild(this.render.domElement);
+        document.body.appendChild(this.renderer.domElement);
 
         this.camera.position.set(0, 0, 5);
         this.camera.lookAt(0, 0, 0);
 
-        this.createParticles();
+        const init = tsl.Fn(() => {
+            const i = tsl.instanceIndex.toFloat();
 
-        this.render.setAnimationLoop(() => {
-            this.update();
-            this.render.render(this.scene, this.camera);
-        });
+            const angle  = tsl.hash(i.add(1)).mul(Math.PI * 2);
+            const radius = tsl.hash(i.add(2)).mul(2).add(1);
+
+            const pos = tsl.vec3(
+                angle.cos().mul(radius),
+                angle.sin().mul(radius),
+                tsl.hash(i.add(3)).sub(0.5).mul(0.4)
+            );
+
+            this.positions.element(tsl.instanceIndex).assign(pos);
+
+            const dir = pos.normalize();
+            const vel = tsl.vec3(
+                dir.y.negate(), 
+                dir.x, 
+                0
+            );
+
+            this.velocities.element(tsl.instanceIndex).assign(vel);
+        })().compute(this.COUNT);
+
+        this.renderer.computeAsync(init);
     }
 
-    private createParticles() {
-        for (let i = 0; i < 10000; i++) {
-            const i3 = i * 3;
+    updateFunction() {
+        console.log("updating")
 
-            const theta = Math.random() * Math.PI * 2;
-            const phi = Math.acos(2 * Math.random() - 1);
-            const radius = Math.random() * 2;
+        this.update = tsl.Fn(() => {
+            const pos = this.positions.element(tsl.instanceIndex);
+            const vel = this.velocities.element(tsl.instanceIndex);
 
-            const x = radius * Math.sin(phi) * Math.cos(theta);
-            const y = radius * Math.sin(phi) * Math.sin(theta);
-            const z = radius * Math.cos(phi);
+            const toAttractor = this.centerPos.sub(pos)
+            const dist = toAttractor.length().add(0.001);
+            const dir = toAttractor.div(dist);
 
-            this.positions[i3] = x;
-            this.positions[i3 + 1] = y;
-            this.positions[i3 + 2] = z;
+            const pullStrength = dist.smoothstep(0.0, 0.5).mul(5.0)
+            const attraction = dir.mul(pullStrength);
 
-            this.targets[i3] = x;
-            this.targets[i3 + 1] = y;
-            this.targets[i3 + 2] = z;
-        }
+            const dt = tsl.float(1 / 60);
 
-        this.geometry.setAttribute("position", new THREE.BufferAttribute(this.positions, 3));
+            const newVel = vel.add(attraction.mul(dt)).min(3.0); 
+            const newPos = pos.add(newVel.mul(dt));
 
-        this.material = new THREE.PointsMaterial({ 
-            size: 0.05,
-            color: 0xffffff
+            this.velocities.element(tsl.instanceIndex).assign(newVel);
+            this.positions.element(tsl.instanceIndex).assign(newPos);
+        })().compute(this.COUNT);
+
+        const material = new webGPU.SpriteNodeMaterial({
+            transparent: true,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
         });
 
-        this.particles = new THREE.Points(this.geometry, this.material);
+        material.positionNode = this.positions.toAttribute();
+        material.scaleNode = tsl.vec3(0.04);
+        material.colorNode = this.colorOfMaterial;
 
-        this.scene.add(this.particles);
+        const particles = new THREE.Sprite(material);
+        particles.count = this.COUNT; 
 
-        this.initialized = true;
-    }
+        this.scene.add(particles);
 
-    private update() {
-        if (!this.initialized) return;
-
-        const positionAttribute = this.geometry.getAttribute("position") as THREE.BufferAttribute;
-
-        for (let i = 0; i < 10000; i++) {
-            const i3 = i * 3;
-
-            this.positions[i3] += (this.targets[i3] - this.positions[i3]) * 0.08;
-
-            this.positions[i3 + 1] += (this.targets[i3 + 1] - this.positions[i3 + 1]) * 0.08;
-
-            this.positions[i3 + 2] += (this.targets[i3 + 2] - this.positions[i3 + 2]) * 0.08;
-        }
-
-        positionAttribute.needsUpdate = true;
+        this.renderer.setAnimationLoop(() => {
+            this.renderer.computeAsync(this.update);
+            this.renderer.render(this.scene, this.camera);
+        });
     }
 
     spread(center: THREE.Vector3) {
-        for (let i = 0; i < 10000; i++) {
-            const i3 = i * 3;
-
-            const theta = Math.random() * Math.PI * 2;
-            const phi = Math.acos(2 * Math.random() - 1);
-
-            const radius = 1.5 + Math.random() * 3;
-
-            this.targets[i3] = center.x + radius * Math.sin(phi) * Math.cos(theta);
-
-            this.targets[i3 + 1] = center.y + radius * Math.sin(phi) * Math.sin(theta);
-
-            this.targets[i3 + 2] = center.z + radius * Math.cos(phi);
-        }
+        this.centerPos = tsl.uniform(center)
+        
+        this.renderer.setAnimationLoop(() => {
+            this.renderer.computeAsync(this.update);
+            this.renderer.render(this.scene, this.camera);
+        });
     }
 
     gather(center: THREE.Vector3, size: number) {
@@ -147,16 +158,16 @@ export class ParticleSystem {
 
             const radius = Math.random() * size;
 
-            this.targets[i3] = center.x + radius * Math.sin(phi) * Math.cos(theta);
+            this.targets.array[i3] = center.x + radius * Math.sin(phi) * Math.cos(theta);
 
-            this.targets[i3 + 1] = center.y + radius * Math.sin(phi) * Math.sin(theta);
+            this.targets.array[i3 + 1] = center.y + radius * Math.sin(phi) * Math.sin(theta);
 
-            this.targets[i3 + 2] = center.z + radius * Math.cos(phi);
+            this.targets.array[i3 + 2] = center.z + radius * Math.cos(phi);
         }
     }
 
     setColor(color: number) {
-        this.material.color.set(color);
+        this.colorOfMaterial = tsl.color(color);
     }
 
     getCamera() {
