@@ -77,6 +77,8 @@ function loop(): void {
   } else if (gestureVar === "lapseBlue") {
     particles.gather(convertMediaPipeToThree( { x: (hands[0].landmarks[8].x + hands[0].landmarks[12].x) / 2, y: hands[0].landmarks[12].y - 0.15, z: hands[0].landmarks[12].z }, particles.getCamera(), false), 2);
     particles.setColor(0x87ceeb);
+  } else if (gestureVar == "maleviolentShrine") {
+    particles.domainExpansion("maleviolentShrine");
   } else {
     particles.gather(center, 1)
     particles.setColor(0xffffff);
