@@ -19,6 +19,12 @@ export class GuestureReconizer {
             ring: false,
             pinky: false,
         },
+        "domainExpansion": {
+            index: false,
+            middle: false,
+            ring: true,
+            pinky: true,
+        }
     };
 
     // Function to reconize gesture

@@ -3,6 +3,7 @@ import { HandAnalyzer } from "./tracking/HandAnalyzer";
 import "./style.css";
 import { GuestureReconizer } from "./tracking/GestureReconizer";
 import { ParticleSystem, convertMediaPipeToThree } from "./particles/ParticleSystem"
+import { Vector3 } from "three";
 
 
 // Gets the webcam video element from the HTML
@@ -23,6 +24,7 @@ const particles = new ParticleSystem();
 // Initializes MediaPipe before starting the webcam
 await tracker.initialize();
 
+await particles.renderer.init()
 
 // Starts the user's webcam
 async function startWebcam(): Promise<void> {
@@ -44,7 +46,7 @@ async function startWebcam(): Promise<void> {
   await particles.renderer.init()
 
   // Starts the main application loop
-  particles.renderer.setAnimationLoop(loop)
+  requestAnimationFrame(loop)
 }
 
 // Runs once per animation frame
@@ -54,7 +56,9 @@ function loop(): void {
   const hands = tracker.getHands();
 
   if (hands.length === 0) {
-    particles.renderer.setAnimationLoop(loop)
+    particles.spread(new Vector3(0, 0, 0))
+    particles.updateFunction()
+    requestAnimationFrame(loop)
     return;
   }
 
@@ -62,32 +66,25 @@ function loop(): void {
 
   const palm = tracker.getPalm();
 
-  if (!palm) {
-    particles.renderer.setAnimationLoop(loop)
-    return;
-  }
-
   const center = convertMediaPipeToThree(palm, particles.getCamera(), false);
 
   if (gestureVar === "reversalRed") {
     particles.gather(convertMediaPipeToThree( { x: hands[0].landmarks[8].x, y: hands[0].landmarks[8].y - 0.15, z: hands[0].landmarks[8].z }, particles.getCamera(), false), 0.5);
     particles.setColor(0xc30f16);
-    particles.renderer.setAnimationLoop(loop)
   } else if (gestureVar === "hollowPurple") {
     particles.gather(convertMediaPipeToThree( { x: hands[0].landmarks[10].x, y: hands[0].landmarks[12].y - 0.15, z: hands[0].landmarks[12].z}, particles.getCamera(), false), 2);
     particles.setColor(0x743089);
-    particles.renderer.setAnimationLoop(loop)
   } else if (gestureVar === "lapseBlue") {
     particles.gather(convertMediaPipeToThree( { x: (hands[0].landmarks[8].x + hands[0].landmarks[12].x) / 2, y: hands[0].landmarks[12].y - 0.15, z: hands[0].landmarks[12].z }, particles.getCamera(), false), 2);
     particles.setColor(0x87ceeb);
-    particles.renderer.setAnimationLoop(loop)
   } else {
-    particles.spread(center);
+    particles.gather(center, 1)
     particles.setColor(0xffffff);
-    particles.renderer.setAnimationLoop(loop)
   }
 
   particles.updateFunction()
+
+  requestAnimationFrame(loop)
 }
 
 // Starts the webcam and tracking system

@@ -1,7 +1,6 @@
 import * as THREE from "three";
 import * as webGPU from "three/webgpu"
 import * as tsl from "three/tsl"
-import { Vector } from "@cazala/party";
 
 interface MediaPipeLandmark {
     x: number;
@@ -38,22 +37,13 @@ export class ParticleSystem {
 
     public update: any;
 
-    private geometry = new THREE.BufferGeometry();
-    private material!: THREE.PointsMaterial;
-    private particles!: THREE.Points;
-
-    // private positions = new webGPU.StorageBufferAttribute(new Float32Array(10000 * 3), 1)
-
-    private targets = new webGPU.StorageBufferAttribute(new Float32Array(10000 * 3), 1)
-
-    private initialized = false;
-
     private centerPos = tsl.uniform(new THREE.Vector3(0, 0, 0))
     private colorOfMaterial = tsl.color(0xffffff)
 
-    private COUNT = 2000;
+    private COUNT = 100000;
     private positions  = tsl.instancedArray(this.COUNT, 'vec3');
     private velocities = tsl.instancedArray(this.COUNT, 'vec3');
+    private forceSign: number = -1;
 
     constructor() {
         this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -97,9 +87,8 @@ export class ParticleSystem {
     }
 
     updateFunction() {
-        console.log("updating")
-
         this.update = tsl.Fn(() => {
+
             const pos = this.positions.element(tsl.instanceIndex);
             const vel = this.velocities.element(tsl.instanceIndex);
 
@@ -107,23 +96,26 @@ export class ParticleSystem {
             const dist = toAttractor.length().add(0.001);
             const dir = toAttractor.div(dist);
 
-            const pullStrength = dist.smoothstep(0.0, 0.5).mul(5.0)
+            const pullStrength = dist.smoothstep(0.0, 0.5).mul(100.0)
             const attraction = dir.mul(pullStrength);
 
             const dt = tsl.float(1 / 60);
 
-            const newVel = vel.add(attraction.mul(dt)).min(3.0); 
+            
+            let newVel = vel.add(attraction.mul(dt)).min(3.0);;
+            
+            if (this.forceSign == 1) {
+                newVel = vel.add(attraction.mul(dt)).min(3.0); 
+            } else if (this.forceSign == -1) {
+                newVel = vel.add(attraction.negate().mul(dt)).min(3.0); 
+            }
             const newPos = pos.add(newVel.mul(dt));
 
             this.velocities.element(tsl.instanceIndex).assign(newVel);
             this.positions.element(tsl.instanceIndex).assign(newPos);
         })().compute(this.COUNT);
 
-        const material = new webGPU.SpriteNodeMaterial({
-            transparent: true,
-            depthWrite: false,
-            blending: THREE.AdditiveBlending,
-        });
+        const material = new webGPU.SpriteNodeMaterial();
 
         material.positionNode = this.positions.toAttribute();
         material.scaleNode = tsl.vec3(0.04);
@@ -133,40 +125,35 @@ export class ParticleSystem {
         particles.count = this.COUNT; 
 
         this.scene.add(particles);
-
-        this.renderer.setAnimationLoop(() => {
-            this.renderer.computeAsync(this.update);
-            this.renderer.render(this.scene, this.camera);
-        });
+        this.renderScene()
     }
 
     spread(center: THREE.Vector3) {
-        this.centerPos = tsl.uniform(center)
+        this.centerPos.value.copy(center)
         
-        this.renderer.setAnimationLoop(() => {
-            this.renderer.computeAsync(this.update);
-            this.renderer.render(this.scene, this.camera);
-        });
+        this.forceSign = -1;
     }
 
     gather(center: THREE.Vector3, size: number) {
-        for (let i = 0; i < 10000; i++) {
-            const i3 = i * 3;
+        this.centerPos.value.copy(center)
+        
+        this.forceSign = 1;
+    }
 
-            const theta = Math.random() * Math.PI * 2;
-            const phi = Math.acos(2 * Math.random() - 1);
+    domainExpansion(domain: string) {
+        if (domain == "maleviolentShrine")
 
-            const radius = Math.random() * size;
+    }
 
-            this.targets.array[i3] = center.x + radius * Math.sin(phi) * Math.cos(theta);
-
-            this.targets.array[i3 + 1] = center.y + radius * Math.sin(phi) * Math.sin(theta);
-
-            this.targets.array[i3 + 2] = center.z + radius * Math.cos(phi);
+    renderScene() {
+        if (this.update != null) {
+            this.renderer.compute(this.update);
+            this.renderer.render(this.scene, this.camera);
         }
     }
 
-    setColor(color: number) {
+    setColor(color: any) {
+        console.log("Color set")
         this.colorOfMaterial = tsl.color(color);
     }
 
