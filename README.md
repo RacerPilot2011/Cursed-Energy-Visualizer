@@ -1,4 +1,4 @@
-# WIP ONLY GESTURE RECOGNITION WORKS
+# WIP
 
 ### Background
 
